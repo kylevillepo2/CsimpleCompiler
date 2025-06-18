@@ -1,0 +1,475 @@
+%{
+    #include <cstdio>
+    #include <cstdlib>
+
+    #include "ast.hpp"
+    #include "primitive.hpp"
+    #include "symtab.hpp"
+
+    #define YYDEBUG 1
+
+    extern Program_ptr ast;
+    int yylex(void);
+    void yyerror(const char *);
+    int return_count = 0;
+%}
+
+/* Enables verbose error messages */
+%error-verbose
+
+/** WRITE ME:
+ *  - Put all your token definitions here
+ *  - Put all your type definitions here
+ *  - Put all your precedence/associativity rules here
+ */
+
+%token IDENTIFIER STRING_LITERAL
+%token INT_LITERAL
+%token BOOL_LITERAL
+%token CHAR_LITERAL
+%token NULLTOKEN
+
+/* Keywords */
+%token BOOLEAN CHAR INTEGER STRING INTPTR CHARPTR
+%token IF ELSE WHILE VAR PROCEDURE RETURN TRUE FALSE
+
+/* Operators */
+%token AND OR EQ NEQ LT LE GT GE PLUS MINUS MULT DIV NOT ASSIGN AMPERSAND CARET
+
+/* Other tokens */
+%token SEMICOLON COLON COMMA BAR LBRACE RBRACE LPAREN RPAREN LBRACK RBRACK
+
+/* type definitions */
+%type <u_program> program
+%type <u_proc_list> procedure_list
+%type <u_proc> procedure
+%type <u_decl_list> parameter_list variable_declarations
+%type <u_decl> variable_declaration
+%type <u_symname_list> id_list
+%type <u_type> decl_type param_type BOOLEAN CHAR INTEGER INTPTR CHARPTR NULLTOKEN
+%type <u_procedure_block> procedure_body
+%type <u_stat_list> statements
+%type <u_stat> statement if_statement assignment_statement code_block if_else_statement while_statement call_statement
+%type <u_expr> expr abs_expr
+%type <u_expr_list> expr_list
+%type <u_lhs> lhs
+%type <u_return_stat> return_statement
+%type <u_base_charptr> IDENTIFIER STRING_LITERAL 
+%type <u_base_int> INT_LITERAL CHAR_LITERAL
+%type <u_nested_block> nested_statement_body
+
+/* Precedence and associativity */
+%left OR
+%left AND
+%left EQ NEQ
+%left LT LE GT GE
+%left PLUS MINUS
+%left MULT DIV
+%right NOT
+%right AMPERSAND CARET 
+
+%%
+
+/* WRITEME: Put your code from Project 3 here */
+
+program:
+    procedure_list { ast = new ProgramImpl($1); }
+    ;
+
+procedure_list:
+    procedure_list procedure 
+    { 
+        $$ = $1;  
+        $$->push_back($2);
+        
+    }
+    | procedure {
+        $$ = new std::list<Proc_ptr>();
+        $$->push_back($1);
+    }
+    ;
+
+procedure:
+    PROCEDURE IDENTIFIER LPAREN parameter_list RPAREN RETURN param_type LBRACE procedure_body RBRACE 
+    { 
+        return_count = 0; 
+        $$ = new ProcImpl(
+            new SymName($2),    // IDENTIFIER is a char*, wrap in SymName
+            $4,                 // parameter_list (std::list<Decl_ptr>*)
+            $7,                 // param_type (Type*)
+            $9                  // procedure_body (Procedure_block*)
+
+        ); 
+    }
+    | PROCEDURE IDENTIFIER LPAREN RPAREN RETURN param_type LBRACE procedure_body RBRACE 
+    { 
+        return_count = 0; 
+        $$ = new ProcImpl(
+            new SymName($2),
+            new std::list<Decl_ptr>(), // no parameter_list
+            $6,
+            $8
+        ); 
+    }
+    ;
+
+parameter_list:
+    id_list COLON param_type 
+    {
+        $$ = new std::list<Decl_ptr>();
+        $$->push_back(new DeclImpl($1, $3));
+
+    }
+    | parameter_list SEMICOLON id_list COLON param_type
+    {
+        $$ = $1;
+        $$->push_back(new DeclImpl($3, $5));
+    }
+    ;
+
+id_list:
+    IDENTIFIER
+    {
+        $$ = new std::list<SymName_ptr>();
+        $$->push_back(new SymName($1));
+    }
+    | id_list COMMA IDENTIFIER
+    {
+        $$ = $1;
+        $1->push_back(new SymName($3));
+    }
+    ;
+
+
+param_type:
+    BOOLEAN  { $$ = new TBoolean(); }
+  | CHAR     { $$ = new TCharacter(); }
+  | INTEGER  { $$ = new TInteger(); }
+  | INTPTR   { $$ = new TIntPtr(); }
+  | CHARPTR  { $$ = new TCharPtr(); }
+  ;
+
+
+decl_type:
+    param_type { $$ = $1; }
+  | STRING LBRACK INT_LITERAL RBRACK { $$ = new TString(new Primitive($3)); }
+  ;
+
+
+procedure_body:
+    procedure_list variable_declarations statements return_statement
+    {
+        $$ = new Procedure_blockImpl($1, $2, $3, $4);
+    }
+    | procedure_list statements return_statement
+    {
+        $$ = new Procedure_blockImpl($1, new std::list<Decl_ptr>(), $2, $3);
+    }
+    | procedure_list variable_declarations return_statement
+    {
+        $$ = new Procedure_blockImpl($1, $2, new std::list<Stat_ptr>(), $3);
+    }
+    | variable_declarations statements return_statement
+    {
+        $$ = new Procedure_blockImpl(new std::list<Proc_ptr>(), $1, $2, $3);
+    }
+    | procedure_list return_statement
+    {
+        $$ = $$ = new Procedure_blockImpl($1, new std::list<Decl_ptr>(), new std::list<Stat_ptr>(), $2);
+    }
+    | variable_declarations return_statement
+    {
+        $$ = new Procedure_blockImpl(new std::list<Proc_ptr>(), $1, new std::list<Stat_ptr>(), $2);
+    }
+    | statements return_statement
+    {
+        $$ = new Procedure_blockImpl(new std::list<Proc_ptr>(), new std::list<Decl_ptr>(), $1, $2);
+    }
+    | return_statement
+    {
+        $$ = new Procedure_blockImpl(new std::list<Proc_ptr>(), new std::list<Decl_ptr>(), new std::list<Stat_ptr>(), $1);
+    }
+    ;
+
+
+variable_declarations:
+    variable_declaration 
+    {
+        $$ = new std::list<Decl_ptr>();
+        $$->push_back($1);
+    }
+    | variable_declarations variable_declaration
+    {
+        $$ = $1;
+        $1->push_back($2);
+    }
+    ;
+
+variable_declaration:
+    VAR id_list COLON decl_type SEMICOLON
+    {
+        $$ = new DeclImpl($2, $4);
+    }
+    ;
+
+statements:
+    statement 
+    {
+        $$ = new std::list<Stat_ptr>();
+        $$->push_back($1);
+    }
+    | statements statement
+    {
+        $$ = $1;
+        $$->push_back($2);
+    }
+    ;
+
+statement:
+    assignment_statement    { $$ = $1; }
+    | if_statement          { $$ = $1; } 
+    | if_else_statement     { $$ = $1; }
+    | while_statement       { $$ = $1; }
+    | code_block            { $$ = $1; }
+    | call_statement        { $$ = $1; }
+    ;
+
+assignment_statement:
+    lhs ASSIGN expr SEMICOLON
+    {
+        $$ = new Assignment($1, $3);
+    }
+    | lhs ASSIGN STRING_LITERAL SEMICOLON
+    {
+        $$ = new StringAssignment($1, new StringPrimitive($3));
+    }
+    ;
+
+lhs:
+    IDENTIFIER 
+    { 
+        $$ = new Variable(new SymName($1)); 
+    }
+    | IDENTIFIER LBRACK expr RBRACK
+    {
+        $$ = new ArrayElement(new SymName($1), $3);
+    }
+    | CARET IDENTIFIER
+    {
+        $$ = new DerefVariable(new SymName($2));
+    }
+    ;
+
+if_statement:
+    IF LPAREN expr RPAREN LBRACE nested_statement_body RBRACE
+    {
+        $$ = new IfNoElse($3, $6);
+    }
+    ;
+
+if_else_statement:
+    IF LPAREN expr RPAREN LBRACE nested_statement_body RBRACE ELSE LBRACE nested_statement_body RBRACE
+    {
+        $$ = new IfWithElse($3, $6, $10);
+    }
+    ;
+
+while_statement:
+    WHILE LPAREN expr RPAREN LBRACE nested_statement_body RBRACE
+    {
+        $$ = new WhileLoop($3, $6);
+    }
+    ;
+
+call_statement:
+    lhs ASSIGN IDENTIFIER LPAREN expr_list RPAREN SEMICOLON
+    {
+        $$ = new Call($1, new SymName($3), $5);
+    }
+    |   lhs ASSIGN IDENTIFIER LPAREN RPAREN SEMICOLON
+    {
+        $$ = new Call($1, new SymName($3), new std::list<Expr_ptr>());
+    }
+
+nested_statement_body:
+    /* empty */ 
+    {
+        $$ = new Nested_blockImpl(new std::list<Decl_ptr>(), new std::list<Stat_ptr>());
+    }
+    | variable_declarations statements
+    {
+        $$ = new Nested_blockImpl($1, $2);
+    }
+    | variable_declarations
+    {
+        $$ = new Nested_blockImpl($1, new std::list<Stat_ptr>());
+    }
+    | statements
+    {
+        $$ = new Nested_blockImpl(new std::list<Decl_ptr>(), $1);
+    }
+    ;
+
+code_block:
+    LBRACE nested_statement_body RBRACE
+    {
+        $$ = new CodeBlock($2);
+    }
+    ;
+
+return_statement:
+    RETURN expr SEMICOLON { 
+        $$ = new Return($2);
+        if (return_count > 0) {
+            yyerror("Multiple return statements in a procedure are not allowed");
+        }
+        return_count++;
+    }
+    ;
+
+
+expr:
+    INT_LITERAL
+    {
+        $$ = new IntLit(new Primitive($1));
+    }
+  | CHAR_LITERAL
+    {
+        $$ = new CharLit(new Primitive($1));
+    }
+  | TRUE
+    {
+        $$ = new BoolLit(new Primitive(1));
+    }
+  | FALSE
+    {
+        $$ = new BoolLit(new Primitive(0));
+    }
+  | IDENTIFIER
+    {
+        $$ = new Ident(new SymName($1));
+    }
+  | IDENTIFIER LBRACK expr RBRACK
+    {
+        $$ = new ArrayAccess(new SymName($1), $3);
+    }
+  | LPAREN expr RPAREN
+    {
+        $$ = $2;
+    }
+  | expr PLUS expr
+    {
+        $$ = new Plus($1, $3);
+    }
+  | expr MINUS expr
+    {
+        $$ = new Minus($1, $3);
+    }
+  | expr MULT expr
+    {
+        $$ = new Times($1, $3);
+    }
+  | expr DIV expr
+    {
+        $$ = new Div($1, $3);
+    }
+  | expr AND expr
+    {
+        $$ = new And($1, $3);
+    }
+  | expr OR expr
+    {
+        $$ = new Or($1, $3);
+    }
+  | expr EQ expr
+    {
+        $$ = new Compare($1, $3);
+    }
+  | expr NEQ expr
+    {
+        $$ = new Noteq($1, $3);
+    }
+  | expr LT expr
+    {
+        $$ = new Lt($1, $3);
+    }
+  | expr LE expr
+    {
+        $$ = new Lteq($1, $3);
+    }
+  | expr GT expr
+    {
+        $$ = new Gt($1, $3);
+    }
+  | expr GE expr
+    {
+        $$ = new Gteq($1, $3);
+    }
+  | MINUS expr %prec NOT
+    {
+        $$ = new Uminus($2);
+    }
+  | NOT expr
+    {
+        $$ = new Not($2);
+    }
+  | AMPERSAND IDENTIFIER
+    {
+        $$ = new AddressOf(new Variable(new SymName($2)));
+    }
+  | AMPERSAND IDENTIFIER LBRACK expr RBRACK
+    {
+        $$ = new AddressOf(new ArrayElement(new SymName($2), $4));
+    }
+  | AMPERSAND CARET IDENTIFIER
+    {
+        $$ = new AddressOf(new DerefVariable(new SymName($3)));
+    }
+  | CARET expr
+    {
+        $$ = new Deref($2);
+    }
+  | NULLTOKEN 
+  {
+    $$ = new NullLit();
+  }
+  | BAR abs_expr
+    {
+        $$ = new AbsoluteValue($2);
+    }
+    ;
+
+
+expr_list:
+    expr
+    {
+        $$ = new std::list<Expr_ptr>();
+        $$->push_back($1);
+    }
+  | expr_list COMMA expr
+  {
+    $$ = $1;
+    $$->push_back($3);
+  }
+  ;
+
+abs_expr:
+    expr BAR  {
+        $$ = $1;
+    }
+    ;
+
+
+%%
+
+/** You shall not pass!
+ *  You should not  have to do or edit anything past this.
+ */
+
+extern int yylineno;
+
+void yyerror(const char *s)
+{
+    fprintf(stderr, "%s at line %d\n", s, yylineno);
+    exit(1);
+}
