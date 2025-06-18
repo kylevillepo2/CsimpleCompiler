@@ -1,89 +1,32 @@
 # Mini Language Compiler
 
-A robust compiler implementation for a custom programming language, demonstrating advanced systems programming concepts and compiler design principles.
+A compiler implementation for a custom programming language that translates source code into 32-bit x86 assembly. This project demonstrates compiler design principles, type systems, and systems programming concepts.
 
-## 🚀 Features
+## Project Overview
 
-- **Lexical Analysis**: Custom lexer implementation using Flex (lexer.l) supporting:
+This compiler implements a statically-typed programming language with support for:
 
-  - Multiple number formats (hex, octal, binary, decimal)
-  - String and character literals
-  - Comprehensive operator support
-  - Comment handling
+- Primitive types (integer, boolean, char)
+- Pointer types (intptr, charptr)
+- String arrays
+- Control flow (if-else, while loops)
+- Functions and procedures
+- Array operations
 
-- **Syntax Analysis**: Parser implementation using Bison (parser.ypp) featuring:
+The compiler pipeline includes lexical analysis, parsing, semantic analysis, and code generation phases, producing optimized 32-bit x86 assembly output.
 
-  - Strong type system with support for:
-    - Primitive types (integer, boolean, char)
-    - Pointer types (intptr, charptr)
-    - String arrays
-  - Control flow structures (if-else, while loops)
-  - Function declarations and calls
-  - Variable declarations and scoping
-  - Array operations
+## File Descriptions
 
-- **Semantic Analysis**: Type checking system that ensures:
+- **ast.hpp/cpp**: Abstract Syntax Tree implementation using inheritance and the visitor pattern for tree traversal
+- **attribute.hpp**: Type definitions and attribute handling for the compiler
+- **codegen.cpp**: 32-bit x86 assembly code generation with register allocation and stack management
+- **lexer.l**: Lexical analyzer specification using Flex, handling tokens and literals
+- **parser.ypp**: Parser specification using Bison, implementing the language grammar
+- **primitive.hpp/cpp**: Implementation of primitive types and their operations
+- **symtab.hpp/cpp**: Symbol table implementation for scope management and variable tracking
+- **typecheck.cpp**: Type checking system ensuring type safety and proper scoping
 
-  - Type safety across expressions
-  - Proper variable scoping
-  - Function call validation
-  - Pointer operation safety
-  - Array bounds checking
-
-- **Code Generation**: MIPS assembly code generation with:
-  - Register allocation
-  - Stack frame management
-  - Procedure calls
-  - Memory management
-  - String handling
-
-## 🛠️ Technical Implementation
-
-The project is implemented in C++ and demonstrates several key software engineering concepts:
-
-- **Object-Oriented Design**: Extensive use of inheritance and polymorphism for AST nodes
-- **Visitor Pattern**: Implementation of the visitor pattern for tree traversal
-- **Memory Management**: Custom memory management for AST nodes and symbol tables
-- **Error Handling**: Comprehensive error detection and reporting system
-- **Symbol Table Management**: Efficient symbol table implementation with scope handling
-
-## 📋 Project Structure
-
-```
-.
-├── ast.hpp/cpp         # Abstract Syntax Tree implementation
-├── attribute.hpp       # Type and attribute definitions
-├── codegen.cpp        # MIPS code generation
-├── lexer.l            # Lexical analyzer specification
-├── parser.ypp         # Parser specification
-├── primitive.hpp/cpp  # Primitive type handling
-├── symtab.hpp/cpp     # Symbol table implementation
-└── typecheck.cpp      # Type checking implementation
-```
-
-## 🎯 Key Technical Achievements
-
-1. **Type System**: Implementation of a sophisticated type system supporting:
-
-   - Type inference
-   - Type compatibility checking
-   - Pointer type safety
-   - Array type validation
-
-2. **Memory Management**: Efficient handling of:
-
-   - Stack frames
-   - Dynamic memory allocation
-   - Pointer operations
-   - String literals
-
-3. **Error Detection**: Comprehensive error checking for:
-   - Type mismatches
-   - Undefined variables
-   - Invalid operations
-   - Scope violations
-
-## 🏗️ Build and Run
+## Build and Run
 
 ```bash
 make        # Build the compiler
