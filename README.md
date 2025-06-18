@@ -1,6 +1,6 @@
 # Csimple Compiler
 
-A compiler implementation for a Csimple (Language manual: https://sites.cs.ucsb.edu/~chris/teaching/cs160/projects/language.html) that translates source code into 32-bit x86 assembly. This project demonstrates compiler design principles, type systems, and systems programming concepts.
+A compiler implementation for a Csimple (manual: https://sites.cs.ucsb.edu/~chris/teaching/cs160/projects/language.html) that translates source code into 32-bit x86 assembly. This project demonstrates compiler design principles, type systems, and systems programming concepts.
 
 ## Project Overview
 
